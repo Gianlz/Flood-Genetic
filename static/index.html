@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Otimizador de Rotas de Evacuação em Inundações</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        .cell {
+            width: 12px;
+            height: 12px;
+            border: 1px solid #e5e7eb;
+        }
+
+        .rua {
+            background-color: white;
+        }
+
+        .edificio {
+            background-color: #1f2937;
+        }
+
+        .inundacao {
+            background-color: #3b82f6;
+        }
+
+        .inicio {
+            background-color: #10b981;
+        }
+
+        .fim {
+            background-color: #ef4444;
+        }
+
+        .caminho {
+            background-color: #fbbf24;
+        }
+
+        .grid-container {
+            display: inline-block;
+            padding: 10px;
+            background: white;
+            border-radius: 8px;
+        }
+
+        .cidade-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 0;
+        }
+
+        .cidade-linha {
+            display: flex;
+            gap: 0;
+        }
+    </style>
+</head>
+
+<body class="bg-gray-100">
+    <div class="container mx-auto p-4">
+        <h1 class="text-3xl font-bold text-center mb-6">Otimizador de Rotas de Evacuação em Inundações</h1>
+
+        <div class="flex flex-col lg:flex-row gap-6">
+            <!-- Painel Esquerdo: Grid da Cidade -->
+            <div class="lg:w-1/2 bg-white rounded-lg shadow-lg p-4">
+                <div class="mb-4 flex justify-between items-center">
+                    <div class="space-x-2">
+                        <button id="novaCidadeBtn"
+                            class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 text-sm">
+                            Gerar Nova Cidade
+                        </button>
+                        <button id="iniciarBtn"
+                            class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 text-sm">
+                            Iniciar Otimização
+                        </button>
+                    </div>
+                    <div>
+                        <p class="text-sm text-gray-600">Status: <span id="status" class="font-semibold">Pronto</span>
+                        </p>
+                    </div>
+                </div>
+
+                <div class="grid-container">
+                    <div id="grid" class="cidade-grid"></div>
+                </div>
+            </div>
+
+            <!-- Painel Direito: Estatísticas e Gráficos -->
+            <div class="lg:w-1/2 space-y-6">
+                <!-- Cartões de Estatísticas -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="bg-white rounded-lg shadow-lg p-4">
+                        <h3 class="font-semibold mb-3 text-gray-700">Geração Atual</h3>
+                        <div class="space-y-2">
+                            <p class="flex justify-between">
+                                <span class="text-gray-600">Geração:</span>
+                                <span id="geracao" class="font-mono">0</span>
+                            </p>
+                            <p class="flex justify-between">
+                                <span class="text-gray-600">Melhor Fitness:</span>
+                                <span id="fitness" class="font-mono">0</span>
+                            </p>
+                            <p class="flex justify-between">
+                                <span class="text-gray-600">Comprimento do Caminho:</span>
+                                <span id="comprimentoCaminho" class="font-mono">0</span>
+                            </p>
+                            <p class="flex justify-between">
+                                <span class="text-gray-600">Pontos de Inundação:</span>
+                                <span id="pontosInundacao" class="font-mono">0</span>
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-lg shadow-lg p-4">
+                        <h3 class="font-semibold mb-3 text-gray-700">Legenda do Mapa</h3>
+                        <div class="grid grid-cols-2 gap-2">
+                            <div class="flex items-center">
+                                <div class="cell rua mr-2"></div>
+                                <span class="text-sm text-gray-600">Rua</span>
+                            </div>
+                            <div class="flex items-center">
+                                <div class="cell edificio mr-2"></div>
+                                <span class="text-sm text-gray-600">Edifício</span>
+                            </div>
+                            <div class="flex items-center">
+                                <div class="cell inundacao mr-2"></div>
+                                <span class="text-sm text-gray-600">Risco de Inundação</span>
+                            </div>
+                            <div class="flex items-center">
+                                <div class="cell inicio mr-2"></div>
+                                <span class="text-sm text-gray-600">Início</span>
+                            </div>
+                            <div class="flex items-center">
+                                <div class="cell fim mr-2"></div>
+                                <span class="text-sm text-gray-600">Fim</span>
+                            </div>
+                            <div class="flex items-center">
+                                <div class="cell caminho mr-2"></div>
+                                <span class="text-sm text-gray-600">Caminho</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Gráfico de Progresso da Evolução -->
+                <div class="bg-white rounded-lg shadow-lg p-4">
+                    <h3 class="font-semibold mb-3 text-gray-700">Progresso da Evolução</h3>
+                    <div class="h-64">
+                        <canvas id="graficoEvolucao"></canvas>
+                    </div>
+                </div>
+
+                <!-- Detalhes do Algoritmo -->
+                <div class="bg-white rounded-lg shadow-lg p-4">
+                    <h3 class="font-semibold mb-3 text-gray-700">Detalhes do Algoritmo</h3>
+                    <div class="grid grid-cols-2 gap-4 text-sm text-gray-600">
+                        <div>
+                            <p>Tamanho da População: <span id="tamanhoPopulacao">-</span></p>
+                            <p>Taxa de Mutação: <span id="taxaMutacao">-</span>%</p>
+                            <p>Número de Gerações: <span id="numGeracoes">-</span></p>
+                        </div>
+                        <div>
+                            <p>Tamanho do Torneio: <span id="tamanhoTorneio">-</span></p>
+                            <p>Tamanho do Grid: <span id="tamanhoGrid">-</span>x<span id="tamanhoGridY">-</span></p>
+                            <p>Máx. Comprimento do Caminho: <span id="maxComprimento">-</span></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let dadosCidade = null;
+        let ws = null;
+        let grafico = null;
+        let historicoFitness = [];
+        let historicoComprimentoCaminho = [];
+        let rotulosGeracao = [];
+
+        function iniciarGrafico() {
+            const ctx = document.getElementById('graficoEvolucao').getContext('2d');
+            grafico = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: rotulosGeracao,
+                    datasets: [{
+                        label: 'Melhor Fitness',
+                        data: historicoFitness,
+                        borderColor: 'rgb(59, 130, 246)',
+                        tension: 0.1
+                    }, {
+                        label: 'Comprimento do Caminho',
+                        data: historicoComprimentoCaminho,
+                        borderColor: 'rgb(16, 185, 129)',
+                        tension: 0.1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+        }
+
+        function atualizarGrafico(geracao, fitness, comprimentoCaminho) {
+            rotulosGeracao.push(geracao);
+            historicoFitness.push(fitness);
+            historicoComprimentoCaminho.push(comprimentoCaminho);
+
+            grafico.data.labels = rotulosGeracao;
+            grafico.data.datasets[0].data = historicoFitness;
+            grafico.data.datasets[1].data = historicoComprimentoCaminho;
+            grafico.update();
+        }
+
+        function criarGrid(dados) {
+            const grid = document.getElementById('grid');
+            grid.innerHTML = '';
+
+            for (let i = 0; i < dados.grid.length; i++) {
+                const linha = document.createElement('div');
+                linha.className = 'cidade-linha';
+
+                for (let j = 0; j < dados.grid[i].length; j++) {
+                    const celula = document.createElement('div');
+                    celula.className = 'cell ' + (dados.grid[i][j] === 1 ? 'edificio' : 'rua');
+
+                    if (dados.pontos_inundacao.some(([x, y]) => x === i && y === j)) {
+                        celula.className = 'cell inundacao';
+                    }
+
+                    if (dados.ponto_inicio[0] === i && dados.ponto_inicio[1] === j) {
+                        celula.className = 'cell inicio';
+                    }
+                    if (dados.ponto_fim[0] === i && dados.ponto_fim[1] === j) {
+                        celula.className = 'cell fim';
+                    }
+
+                    linha.appendChild(celula);
+                }
+                grid.appendChild(linha);
+            }
+        }
+
+        function atualizarCaminho(caminho) {
+            document.querySelectorAll('.caminho').forEach(celula => {
+                if (!celula.classList.contains('inicio') && !celula.classList.contains('fim')) {
+                    celula.classList.remove('caminho');
+                }
+            });
+
+            if (caminho) {
+                caminho.forEach(([x, y]) => {
+                    const linhas = document.getElementById('grid').children;
+                    const celula = linhas[x].children[y];
+                    if (!celula.classList.contains('inicio') && !celula.classList.contains('fim')) {
+                        celula.classList.add('caminho');
+                    }
+                });
+            }
+        }
+
+        function atualizarEstatisticas(dados) {
+            document.getElementById('geracao').textContent = dados.geracao;
+            document.getElementById('fitness').textContent = dados.melhor_fitness.toFixed(6);
+
+            if (dados.melhor_rota) {
+                document.getElementById('comprimentoCaminho').textContent = dados.melhor_rota.length;
+                const pontosInundacao = dadosCidade.pontos_inundacao.filter(pi =>
+                    dados.melhor_rota.some(([x, y]) => x === pi[0] && y === pi[1])
+                ).length;
+                document.getElementById('pontosInundacao').textContent = pontosInundacao;
+            }
+
+            atualizarGrafico(dados.geracao, dados.melhor_fitness, dados.melhor_rota ? dados.melhor_rota.length : 0);
+        }
+
+        async function atualizarParametros() {
+            try {
+                const response = await fetch('/api/parametros');
+                const parametros = await response.json();
+
+                document.getElementById('tamanhoPopulacao').textContent = parametros.tamanho_populacao;
+                document.getElementById('taxaMutacao').textContent = (parametros.taxa_mutacao * 100).toFixed(0);
+                document.getElementById('numGeracoes').textContent = parametros.geracoes;
+                document.getElementById('tamanhoTorneio').textContent = parametros.tamanho_torneio;
+                document.getElementById('tamanhoGrid').textContent = parametros.tamanho_grid;
+                document.getElementById('tamanhoGridY').textContent = parametros.tamanho_grid;
+                document.getElementById('maxComprimento').textContent = parametros.max_comprimento_caminho;
+            } catch (erro) {
+                console.error('Erro ao buscar parâmetros:', erro);
+            }
+        }
+
+        async function gerarNovaCidade() {
+            document.getElementById('status').textContent = 'Gerando nova cidade...';
+            await atualizarParametros();
+            const resposta = await fetch('/api/nova-cidade');
+            dadosCidade = await resposta.json();
+            criarGrid(dadosCidade);
+
+            document.getElementById('geracao').textContent = '0';
+            document.getElementById('fitness').textContent = '0';
+            document.getElementById('comprimentoCaminho').textContent = '0';
+            document.getElementById('pontosInundacao').textContent = '0';
+
+            historicoFitness = [];
+            historicoComprimentoCaminho = [];
+            rotulosGeracao = [];
+            if (grafico) {
+                grafico.destroy();
+            }
+            iniciarGrafico();
+
+            if (ws) {
+                ws.close();
+                ws = null;
+            }
+
+            document.getElementById('status').textContent = 'Pronto';
+        }
+
+        async function iniciarOtimizacao() {
+            if (!dadosCidade) {
+                alert('Por favor, gere uma cidade primeiro!');
+                return;
+            }
+
+            document.getElementById('status').textContent = 'Otimizando...';
+            if (ws) {
+                ws.close();
+            }
+
+            ws = new WebSocket(`ws://${window.location.host}/ws/otimizar`);
+
+            ws.onopen = () => {
+                ws.send(JSON.stringify(dadosCidade));
+            };
+
+            ws.onmessage = (evento) => {
+                const dados = JSON.parse(evento.data);
+                atualizarCaminho(dados.melhor_rota);
+                atualizarEstatisticas(dados);
+
+                if (dados.completo) {
+                    document.getElementById('status').textContent = 'Otimização completa!';
+                }
+            };
+
+            ws.onerror = (erro) => {
+                console.error('Erro no WebSocket:', erro);
+                document.getElementById('status').textContent = 'Ocorreu um erro';
+            };
+
+            ws.onclose = () => {
+                if (document.getElementById('status').textContent !== 'Otimização completa!') {
+                    document.getElementById('status').textContent = 'Conexão fechada';
+                }
+            };
+        }
+
+        // Event listeners
+        document.getElementById('novaCidadeBtn').addEventListener('click', gerarNovaCidade);
+        document.getElementById('iniciarBtn').addEventListener('click', iniciarOtimizacao);
+
+        // Inicialização
+        iniciarGrafico();
+        gerarNovaCidade();
+    </script>
+</body>
+
+</html>
