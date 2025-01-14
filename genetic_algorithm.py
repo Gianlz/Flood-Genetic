@@ -5,7 +5,7 @@ from dataclasses import dataclass
 
 # Constantes
 TAMANHO_GRID = 40
-TAMANHO_POPULACAO = 100  # Aumentado para maior diversidad
+TAMANHO_POPULACAO = 100  # Aumentado para maior diversidade
 GERACOES = 100
 TAXA_MUTACAO = 0.05   # Aumentado para mais exploração
 TAMANHO_TORNEIO = 5
