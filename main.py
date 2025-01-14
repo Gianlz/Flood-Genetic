@@ -1,4 +1,4 @@
-from fastapi import FastAPI, WebSocket
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 import json
@@ -31,9 +31,22 @@ async def nova_cidade():
     cidade = Cidade.gerar()
     return cidade.para_dicionario()
 
+class ConnectionManager:
+    def __init__(self):
+        self.active_connections: list[WebSocket] = []
+
+    async def connect(self, websocket: WebSocket):
+        await websocket.accept()
+        self.active_connections.append(websocket)
+
+    def disconnect(self, websocket: WebSocket):
+        self.active_connections.remove(websocket)
+
+manager = ConnectionManager()
+
 @app.websocket("/ws/otimizar")
 async def otimizar(websocket: WebSocket):
-    await websocket.accept()
+    await manager.connect(websocket)
     
     try:
         # Obtém dados da cidade inicial
@@ -64,11 +77,14 @@ async def otimizar(websocket: WebSocket):
             if estado['completo']:
                 break
                 
+    except WebSocketDisconnect:
+        manager.disconnect(websocket)
     except Exception as e:
         print(f"Erro WebSocket: {str(e)}")
         import traceback
         traceback.print_exc()
     finally:
+        manager.disconnect(websocket)
         await websocket.close()
 
 @app.get("/api/parametros")

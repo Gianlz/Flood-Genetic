@@ -1,0 +1,8 @@
+Tabela de Valores de Fitness:
+
+> 0.01: Excelente
+0.005 - 0.01: Bom
+< 0.005: Necessita melhorias 
+0: Rota inválida
+
+

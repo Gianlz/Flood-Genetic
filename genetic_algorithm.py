@@ -4,12 +4,16 @@ from typing import List, Tuple, Dict
 from dataclasses import dataclass
 
 # Constantes
-TAMANHO_GRID = 40
-TAMANHO_POPULACAO = 100  # Aumentado para maior diversidade
+
+TAMANHO_POPULACAO = 100 # Aumentado para maior diversidade
 GERACOES = 100
 TAXA_MUTACAO = 0.05   # Aumentado para mais exploração
 TAMANHO_TORNEIO = 5
+
+# GRID
+TAMANHO_GRID = 40
 MAX_COMPRIMENTO_CAMINHO = TAMANHO_GRID * 2
+MAX_PONTOS_INUNDACAO = 65
 
 @dataclass
 class Cidade:
@@ -36,7 +40,7 @@ class Cidade:
                             if grid[i, j] == 0 and (i, j) != (1, 1) and (i, j) != (TAMANHO_GRID-2, TAMANHO_GRID-2)]
         
         if pontos_possiveis:
-            num_pontos_inundacao = random.randint(3, 7)
+            num_pontos_inundacao = random.randint(3, MAX_PONTOS_INUNDACAO)
             pontos_inundacao = random.sample(pontos_possiveis, min(num_pontos_inundacao, len(pontos_possiveis)))
 
         return cls(
@@ -56,13 +60,20 @@ class Cidade:
 
     def get_vizinhos(self, pos: Tuple[int, int]) -> List[Tuple[int, int]]:
         x, y = pos
-        vizinhos = []
+        vizinhos_sem_inundacao = []
+        vizinhos_com_inundacao = []
+        
         for dx, dy in [(0, 1), (1, 0), (0, -1), (-1, 0)]:
             novo_x, novo_y = x + dx, y + dy
             if (0 <= novo_x < TAMANHO_GRID and 0 <= novo_y < TAMANHO_GRID and 
                 self.grid[novo_x][novo_y] == 0):
-                vizinhos.append((novo_x, novo_y))
-        return vizinhos
+                if (novo_x, novo_y) in self.pontos_inundacao:
+                    vizinhos_com_inundacao.append((novo_x, novo_y))
+                else:
+                    vizinhos_sem_inundacao.append((novo_x, novo_y))
+        
+        # Retorna vizinhos sem inundação se existirem, caso contrário retorna todos
+        return vizinhos_sem_inundacao if vizinhos_sem_inundacao else vizinhos_com_inundacao
 
 class Rota:
     def __init__(self, caminho: List[Tuple[int, int]], cidade: Cidade):
@@ -92,8 +103,14 @@ class Rota:
             return 1.0 / (comprimento_caminho + distancia_ate_fim * 2)
 
         # Caminho valido ate o fim
-        risco_inundacao = sum(1 for ponto in self.caminho if ponto in self.cidade.pontos_inundacao)
-        return 1.0 / (comprimento_caminho + risco_inundacao * 10)
+        pontos_inundacao = [ponto for ponto in self.caminho if ponto in self.cidade.pontos_inundacao]
+        risco_inundacao = len(pontos_inundacao)
+        
+        # Penaliza muito mais severamente o uso de pontos de inundação
+        if risco_inundacao > 0:
+            return 1.0 / (comprimento_caminho + (risco_inundacao ** 2) * 50)
+        else:
+            return 1.0 / comprimento_caminho  # Recompensa caminhos sem pontos de inundação
 
 class AlgoritmoGenetico:
     def __init__(self, cidade: Cidade):
